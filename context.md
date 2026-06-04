@@ -1,49 +1,18 @@
-# Project Context & Scope: Adaptive Anti-Jamming Frequency Optimization
+# Project Context: Tactical Mesh Network Simulator
 
-## 1. Project Idea & Overview
-In secure military communications, messages must be sent over radio frequency (RF) networks. Adversaries deploy intelligent jammers to block these communications by intentionally injecting high levels of interference across one or multiple frequency bands. 
+## Concept
+In military operations, messages are sent over radio signals. Enemy jammers can block one or more frequencies. We are simulating a resilient mesh network that actively dodges these jammed frequencies to deliver critical data. 
 
-This project simulates a tactical battlefield network where a **Sender** must transmit a secure message across a network of frequencies (represented as a weighted graph), while an intelligent **Jammer** actively attempts to block the transmission. 
+## The Unique Twist
+To make this project unique, highly visual, and scientifically accurate:
+1. **Dynamic Edge-Specific Jamming**: Jammers don't blanket an entire map perfectly. Our jammer actively scrambles specific frequencies on specific physical links between nodes. 
+2. **Blind Trial-and-Error**: The sender does NOT magically know which frequencies are jammed. It must attempt a transmission, detect a failure (a simulated dropped packet / missing ACK), and rapidly hop to a new frequency on that same link to try again.
+3. **Word Completion Algorithm**: If a transmission fails entirely across all 5 frequencies, the character is officially dropped. The receiving end uses a Levenshtein distance word-completion algorithm to guess the missing letters and reconstruct the data payload.
 
-The goal of this project is to apply **Design and Analysis of Algorithms (DAA)** concepts to simulate and compare routing algorithms against jammers, and to introduce novel algorithmic techniques for both sides of the electronic warfare scenario.
-
-## 2. Novel Algorithmic Contributions (Algorithmic Warfare)
-To make this project stand out, we are introducing custom algorithms:
-
-### For the Sender (Anti-Jamming)
-1. **Predictive Graph-Hopping Algorithm (PGHA)**: Instead of simply choosing the current safest node (Greedy), the PGHA uses a Rolling-Window Dynamic Programming approach. It builds a probability matrix of the jammer's past moves and computes the optimal future path that minimizes the expected interference, predicting where the jammer will strike next and avoiding it proactively.
-2. **Error-Correction Word Completion Algorithm**: When a message is sent over a jammed frequency, packets (characters) may be lost. The system implements a predictive Trie-based or Levenshtein-distance word completion algorithm. If the receiver gets "T_RG_T", the algorithm reconstructs the original word "TARGET", ensuring communication integrity despite jamming.
-
-### For the Jammer (Adversary)
-1. **Adversarial Min-Max Jammer (AMMJ)**: Turning the tables, we improve the jammer using Game Theory. The jammer calculates the sender's most likely escape routes (edges with lowest switching costs) and targets those specific bottlenecks to trap the sender in high-interference zones, maximizing packet loss.
-
-## 3. Data Flow & Architecture
-1. **Simulation Engine (Backend)**: Maintains a dynamic `Graph` of frequency nodes. At every time tick, it updates interference levels via the `Jammer` logic and asks the `Algorithms` module to calculate the next hop for the Sender.
-2. **Message Transmission**: The sender transmits a predefined message character by character. If interference exceeds reliability, the character is dropped. The Word Completion Algorithm attempts to reconstruct dropped characters on the receiving end.
-3. **Frontend Dashboard**: Polls the `/api/state` endpoint every second to fetch the current graph state, jammed nodes, and algorithm performance. It visually renders the graph and metrics.
-
-## 4. File Structure
-
-```text
-/backend/
-├── app.py              # Flask API (Endpoints: /api/state, /api/step, /api/override_node)
-├── simulation.py       # Core Simulation Engine & Graph Data Structure
-├── algorithms.py       # PGHA, Dijkstra, Greedy, DP, A*, Word Completion logic
-├── jammer.py           # AMMJ, Random, Sweep, Single, Multi Jamming strategies
-└── requirements.txt    # Python dependencies (Flask, Flask-Cors)
-
-/frontend/
-├── src/
-│   ├── index.css               # Design system, glassmorphism, wave animations
-│   ├── App.jsx                 # Main application shell
-│   ├── components/
-│   │   ├── Dashboard.jsx       # State management and API polling
-│   │   ├── NetworkGraph.jsx    # SVG rendering of nodes and wave signals
-│   │   ├── MetricsCharts.jsx   # Chart.js visualization of packet loss / cost
-│   │   └── ControlPanel.jsx    # User UI to manually jam nodes or set strategies
-├── package.json        # Node dependencies (React, Chart.js, Vite)
-└── vite.config.js      # Vite configuration
-```
-
-## 5. Note to Other Agents
-If you are reading this file, you have full context of the project. Do not revert the UI back to simple CSS; the frontend relies heavily on animated SVGs ("Wave Signals") for `NetworkGraph.jsx`. When modifying the simulation logic, ensure that the API contracts in `backend/app.py` remain consistent so the React polling loop in `Dashboard.jsx` does not break.
+## Data Flow
+1. **Routing**: The user selects a Source and Target host. The Python backend calculates the shortest path (e.g., H1 -> H2 -> H4 -> H7) across a 9-node mesh network using the A* algorithm.
+2. **Jamming**: The AI Jammer continuously randomizes interference matrices for every single physical edge `(n1, n2): {F1: True, F2: False...}`.
+3. **Transmission**: The backend ticks every 800ms. On each tick, the packet blindly attempts an untried frequency on its current link. If clear, it successfully hops to the next node. If jammed, it bounces back and tries a new frequency on the next tick.
+4. **Visualization**: The React frontend polls the backend and renders two distinct visual layers:
+   - *Layer 1 (Macro)*: The 9-node physical mesh and shortest path, complete with pulsing active connections.
+   - *Layer 2 (Micro)*: A linear, unrolled wide-area view of the active path, showing the 5 frequency channels for every link, with the packet physically bouncing off jammed channels or shooting across clear ones using dynamic CSS keyframes.

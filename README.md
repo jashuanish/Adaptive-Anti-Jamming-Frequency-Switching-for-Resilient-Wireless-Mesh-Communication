@@ -1,45 +1,18 @@
-# Comparative Analysis of Adaptive Anti-Jamming Frequency Optimization Algorithms
+# Tactical Mesh Network & Frequency Hopping Simulator
 
-## Project Overview
-In modern military operations, secure radio frequency (RF) communication is critical. Adversaries use advanced electronic warfare techniques, specifically intelligent multi-frequency jamming, to disrupt these communications. 
+A military-grade simulation of a dynamic mesh network under active signal jamming attacks. This project visualizes macro-routing across a battlefield mesh and micro-frequency hopping on specific node-to-node links.
 
-This project simulates a tactical battlefield network where a **Sender** must transmit a secure message across a network of frequencies (represented as a weighted graph), while an intelligent **Jammer** actively attempts to block the transmission.
+## Key Features
+- **Macro Routing (A* Algorithm)**: Automatically calculates the shortest path between any two hosts in a 9-node mesh network.
+- **Edge-Specific AI Jamming**: An intelligent jammer independently scrambles frequencies on every physical link. What's clear between Host 1 and 2 might be blocked between Host 2 and 4.
+- **Blind Trial-and-Error Hopping**: The sender does not have a priori knowledge of the jammer's state. It must blindly test frequencies on a link, bounce back if jammed, and try again, simulating realistic military signal transmission.
+- **Auto-Correction**: Drops jammed packets and uses Levenshtein distance algorithms to reconstruct corrupted messages on the receiving end.
+- **Tactical UI**: A dark, glowing, radar-style military dashboard for comprehensive situational awareness.
 
-To solve this, we apply Design and Analysis of Algorithms (DAA) concepts to simulate and compare classical routing algorithms (Greedy, Dijkstra, Dynamic Programming, A*) against **novel, custom-designed algorithms** created specifically for this project.
+## Running the Application
+1. **Start Backend**: `cd backend && python app.py` (Runs Flask on port 5000)
+2. **Start Frontend**: `cd frontend && npm run dev` (Runs Vite on port 5173)
 
-## Novel Algorithmic Contributions (Algorithmic Warfare)
-
-To make this project unique and step beyond standard Frequency Hopping (FHSS), we introduce two novel algorithms:
-
-### 1. Predictive Graph-Hopping Algorithm (PGHA) - *Sender Algorithm*
-Standard algorithms like Dijkstra only look at the *current* state of the network. The **PGHA** maintains a rolling history of the jammer's attacks. By modeling the jammer's behavior as a Markov chain, it computes a probability matrix to predict which nodes the jammer is likely to strike *next*. It then uses Dynamic Programming to find a path that minimizes both current switching costs and *expected future interference*.
-
-### 2. Adversarial Min-Max Jammer (AMMJ) - *Jammer Algorithm*
-Turning the tables to improve the adversary, the **AMMJ** uses game theory. Instead of randomly jamming frequencies, it analyzes the sender's current location on the graph and identifies the neighbors with the lowest switching costs (the easiest escape routes). It specifically targets these bottlenecks to trap the sender in high-interference zones, maximizing packet loss.
-
-## Tech Stack
-* **Frontend**: React.js, Vite, Vanilla CSS (Glassmorphism / Wave Animations), Chart.js
-* **Backend**: Python, Flask
-* **Algorithms**: Greedy, Priority Queue, Dijkstra, Dynamic Programming, A* Search, PGHA (Custom), AMMJ (Custom Game Theory)
-
-## How to Run Locally
-
-### 1. Start the Backend (Simulation Engine)
-```bash
-cd backend
-python -m venv venv
-# On Windows:
-.\venv\Scripts\activate
-# On Mac/Linux:
-# source venv/bin/activate
-pip install -r requirements.txt # (Flask, Flask-Cors)
-python app.py
-```
-
-### 2. Start the Frontend (Dashboard)
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Open your browser to `http://localhost:5173` to interact with the simulation.
+## Architecture
+- **Backend**: Python/Flask engine simulating ticks, A* routing, and AI Jammer logic.
+- **Frontend**: React/Vite with dynamic CSS keyframe animations to visualize physical packet hops.
