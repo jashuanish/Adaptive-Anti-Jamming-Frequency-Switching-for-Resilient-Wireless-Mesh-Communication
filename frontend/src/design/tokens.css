@@ -1,0 +1,105 @@
+/* ============================================================
+   RF MESH CONTROL — Design System Tokens
+   Engineering-grade. Precise. Reliable.
+   ============================================================ */
+
+:root {
+  /* ── Backgrounds ─────────────────────────────────────── */
+  --bg:          #09090B;
+  --surface-1:   #111114;
+  --surface-2:   #17181D;
+  --surface-3:   #1C1D23;
+  --surface-4:   #222330;
+
+  /* ── Borders / Dividers ──────────────────────────────── */
+  --divider:        rgba(255, 255, 255, 0.06);
+  --divider-strong: rgba(255, 255, 255, 0.10);
+  --divider-subtle: rgba(255, 255, 255, 0.04);
+
+  /* ── Semantic Colors ─────────────────────────────────── */
+  --primary:       #2D7FF9;
+  --primary-dim:   rgba(45, 127, 249, 0.15);
+  --primary-hover: #4A93FF;
+
+  --success:       #2ECC71;
+  --success-dim:   rgba(46, 204, 113, 0.12);
+  --success-text:  #4ADE80;
+
+  --warning:       #FFB020;
+  --warning-dim:   rgba(255, 176, 32, 0.12);
+  --warning-text:  #FFC84A;
+
+  --danger:        #FF4D4F;
+  --danger-dim:    rgba(255, 77, 79, 0.12);
+  --danger-text:   #FF7375;
+
+  --muted-accent:  #3B82F6;
+
+  /* ── Text ────────────────────────────────────────────── */
+  --text-1:   #F8F8F8;
+  --text-2:   #A7A7B2;
+  --muted:    #6F7280;
+  --disabled: #3F4050;
+
+  /* ── Typography ──────────────────────────────────────── */
+  --font-sans: 'IBM Plex Sans', 'Inter', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+
+  /* ── Font Sizes ──────────────────────────────────────── */
+  --text-xs:   10px;
+  --text-sm:   11px;
+  --text-base: 12px;
+  --text-md:   13px;
+  --text-lg:   14px;
+  --text-xl:   16px;
+  --text-2xl:  20px;
+  --text-3xl:  24px;
+  --text-4xl:  32px;
+
+  /* ── Spacing Scale ───────────────────────────────────── */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+
+  /* ── Layout ──────────────────────────────────────────── */
+  --cmd-bar-h:     48px;
+  --left-nav-w:    196px;
+  --ctx-panel-w:   272px;
+  --console-h:     200px;
+
+  /* ── Radii ───────────────────────────────────────────── */
+  --radius-sm:   3px;
+  --radius-md:   5px;
+  --radius-lg:   8px;
+
+  /* ── Elevation (box-shadows) ─────────────────────────── */
+  --shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md:  0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg:  0 8px 24px rgba(0, 0, 0, 0.6);
+
+  /* ── Motion ──────────────────────────────────────────── */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out:    cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --dur-fast:    150ms;
+  --dur-base:    220ms;
+  --dur-slow:    350ms;
+
+  /* ── Status Map ──────────────────────────────────────── */
+  --status-nominal:   var(--success);
+  --status-guarded:   var(--primary);
+  --status-elevated:  var(--warning);
+  --status-high:      #FF7B24;
+  --status-critical:  var(--danger);
+}
+
+/* ── Threat Level Color Utility ───────────────────────────── */
+[data-threat="NOMINAL"]  { --threat-color: var(--success); }
+[data-threat="GUARDED"]  { --threat-color: var(--primary); }
+[data-threat="ELEVATED"] { --threat-color: var(--warning); }
+[data-threat="HIGH"]     { --threat-color: #FF7B24; }
+[data-threat="CRITICAL"] { --threat-color: var(--danger); }
