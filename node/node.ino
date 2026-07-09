@@ -684,6 +684,21 @@ void loopNode()
   // ── Jam state machine ──
   if (suspect)
   {
+    // Flood the channel with constant garbage during the 10 seconds of detection
+    static unsigned long lastGarbageSent = 0;
+    if (millis() - lastGarbageSent >= 50)
+    {
+      lastGarbageSent = millis();
+      char garbage[PAYLOAD_SIZE];
+      garbage[0] = 1; // non-printable to force noise classification
+      for (int i = 1; i < PAYLOAD_SIZE; i++)
+      {
+        garbage[i] = (char)random(0, 256);
+      }
+      radio.stopListening();
+      radio.write(&garbage, PAYLOAD_SIZE);
+      radio.startListening();
+    }
     // Periodic live alert (the visible "being jammed" phase)
     if (millis() - lastAlert > 1000)
     {
@@ -852,13 +867,14 @@ void runAntiJam()
   if (myRole == ROLE_SENDER) runHopSender();
   else                       runHopReceiver();
 
+  // Call retransmit immediately to ensure no packets are missed
+  runRetransmit();
+
   Serial.print(F("[SECURE] Clean channel acquired: "));
   Serial.println(currentChannel);
   Serial.println(F("[ANTI-JAM] Both nodes synchronized. Channel is SAFE."));
   uiStatus("SECURE", ST77XX_GREEN, currentChannel);
   uiLog("**", "Ch " + String(currentChannel) + " secure", ST77XX_GREEN);
-
-  runRetransmit();
 
   // Reset detector for the new (clean) channel
   outCount = 0;
@@ -1005,19 +1021,25 @@ void runHopReceiver()
 // =============================================================
 void runRetransmit()
 {
-  Serial.println(F("[RETX] Retransmission phase started."));
-  uiStatus("RETX", ST77XX_CYAN, currentChannel);
-  uiLog("**", "Retransmitting", ST77XX_CYAN);
-  delay(150);
-
   if (myRole == ROLE_SENDER)
   {
+    Serial.println(F("[RETX] Retransmission phase started."));
+    uiStatus("RETX", ST77XX_CYAN, currentChannel);
+    uiLog("**", "Retransmitting", ST77XX_CYAN);
+    delay(150); // Let the receiver get into listening mode
     sendRetxBatch();
     receiveRetxBatch();
   }
   else
   {
+    // Receiver: start listening immediately! No delay.
     receiveRetxBatch();
+    
+    // After receiving, print status and logs, then send receiver's own batch
+    Serial.println(F("[RETX] Retransmission phase started."));
+    uiStatus("RETX", ST77XX_CYAN, currentChannel);
+    uiLog("**", "Retransmitting", ST77XX_CYAN);
+    delay(150); // Let the sender get into listening mode
     sendRetxBatch();
   }
 
@@ -1084,10 +1106,15 @@ void receiveRetxBatch()
       }
       else if (s == "RETX_END")
       {
-        if (inBatch) done = true;
+        done = true;
       }
-      else if (inBatch && isTextPacket(b) && !isProtocol(s))
+      else if (isTextPacket(b) && !isProtocol(s))
       {
+        if (!inBatch)
+        {
+          inBatch = true;
+          Serial.println(F("[RETX] Incoming retransmission from peer..."));
+        }
         got++;
         Serial.print(F("[RETX] << ")); Serial.println(s);
         uiLog("R<", s, ST77XX_CYAN);
