@@ -335,6 +335,54 @@ export default function HUD() {
 
       </div>
 
+      {/* Target Acquired Overlay */}
+      {tel.progress >= 1 && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: 'rgba(15, 15, 18, 0.95)',
+          backdropFilter: 'blur(16px)',
+          border: '2px solid var(--success)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '40px 60px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 16,
+          boxShadow: '0 0 80px rgba(46,204,113,0.3)',
+          zIndex: 1000,
+          pointerEvents: 'auto',
+        }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 36, fontWeight: 700, color: 'var(--success)', letterSpacing: '0.15em', textAlign: 'center' }}>
+            TARGET ACQUIRED
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, color: 'var(--text-1)', letterSpacing: '0.1em' }}>
+            MISSION COMPLETE
+          </div>
+          {st.corrected_message && (
+            <div style={{
+              marginTop: 24, padding: '16px 24px',
+              background: 'rgba(46,204,113,0.15)',
+              border: '1px solid rgba(46,204,113,0.4)',
+              borderRadius: 'var(--radius-sm)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+              <span style={{ fontSize: 11, color: 'var(--success)', letterSpacing: '0.1em', fontWeight: 600 }}>
+                STRING MATCHING AUTOCORRECT
+              </span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 16, color: 'var(--text-1)' }}>
+                {st.corrected_message}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   )
 }
