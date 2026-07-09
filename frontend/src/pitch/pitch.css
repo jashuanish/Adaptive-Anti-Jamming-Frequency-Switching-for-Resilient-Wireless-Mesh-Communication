@@ -1,0 +1,582 @@
+/* ============================================================
+   PITCH DECK — Military-Grade Pre-App Experience
+   All styles scoped under .pitch-deck to avoid conflicts
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Share+Tech+Mono&display=swap');
+
+/* ── Pitch tokens (additive, do not override :root) ─────── */
+.pitch-deck {
+  --p-green:       #00FF9D;
+  --p-green-dim:   rgba(0, 255, 157, 0.12);
+  --p-green-glow:  rgba(0, 255, 157, 0.35);
+  --p-amber:       #FFB020;
+  --p-amber-dim:   rgba(255, 176, 32, 0.12);
+  --p-amber-glow:  rgba(255, 176, 32, 0.3);
+  --p-blue:        #2D7FF9;
+  --p-blue-dim:    rgba(45, 127, 249, 0.15);
+  --p-red:         #FF4D4F;
+  --p-red-dim:     rgba(255, 77, 79, 0.12);
+  --p-bg:          #080A0E;
+  --p-surface:     #0E1117;
+  --p-surface2:    #131820;
+  --p-divider:     rgba(255, 255, 255, 0.06);
+  --p-text1:       #F0F2F5;
+  --p-text2:       #8B9099;
+  --p-muted:       #4A5260;
+  --font-military: 'Barlow Condensed', 'IBM Plex Sans', sans-serif;
+  --font-signal:   'Share Tech Mono', 'IBM Plex Mono', monospace;
+  --font-body:     'IBM Plex Sans', system-ui, sans-serif;
+}
+
+/* ── Container ──────────────────────────────────────────── */
+.pitch-deck {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--p-bg);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: auto; /* lenis handles this */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Section base ────────────────────────────────────────── */
+.pd-section {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.pd-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 48px;
+}
+
+/* ── Grid overlay (very subtle) ──────────────────────────── */
+.pd-grid-bg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 255, 157, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 157, 0.025) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+}
+
+.pd-scanline {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.06) 2px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+  pointer-events: none;
+}
+
+/* ── Typography ─────────────────────────────────────────── */
+.pd-label {
+  font-family: var(--font-signal);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--p-green);
+  opacity: 0.8;
+}
+
+.pd-headline {
+  font-family: var(--font-military);
+  font-weight: 900;
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: var(--p-text1);
+}
+
+.pd-subhead {
+  font-family: var(--font-military);
+  font-weight: 700;
+  line-height: 1.05;
+  text-transform: uppercase;
+  color: var(--p-text1);
+}
+
+.pd-mono {
+  font-family: var(--font-signal);
+  color: var(--p-text2);
+  line-height: 1.6;
+}
+
+.pd-body {
+  font-family: var(--font-body);
+  color: var(--p-text2);
+  line-height: 1.7;
+}
+
+/* ── Accent colors ─────────────────────────────────────── */
+.pd-green  { color: var(--p-green); }
+.pd-amber  { color: var(--p-amber); }
+.pd-blue   { color: var(--p-blue); }
+.pd-red    { color: var(--p-red); }
+
+/* ── Classification badge ───────────────────────────────── */
+.pd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  border: 1px solid rgba(0, 255, 157, 0.3);
+  border-radius: 2px;
+  font-family: var(--font-signal);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--p-green);
+  background: rgba(0, 255, 157, 0.05);
+}
+
+.pd-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--p-green);
+  box-shadow: 0 0 8px var(--p-green);
+  animation: pd-pulse-dot 1.8s ease-in-out infinite;
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+.pd-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 32px;
+  background: var(--p-green);
+  color: #020303;
+  font-family: var(--font-military);
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.pd-btn-primary:hover {
+  background: #00FFB0;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 30px rgba(0, 255, 157, 0.4);
+}
+
+.pd-btn-primary:active {
+  transform: translateY(0);
+}
+
+.pd-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 28px;
+  background: transparent;
+  color: var(--p-text2);
+  font-family: var(--font-military);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pd-btn-ghost:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--p-text1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ── Dividers ───────────────────────────────────────────── */
+.pd-divider-h {
+  width: 100%;
+  height: 1px;
+  background: var(--p-divider);
+}
+
+.pd-divider-accent {
+  width: 48px;
+  height: 2px;
+  background: var(--p-green);
+  box-shadow: 0 0 8px var(--p-green);
+}
+
+/* ── Panels / Cards ─────────────────────────────────────── */
+.pd-card {
+  background: var(--p-surface);
+  border: 1px solid var(--p-divider);
+  padding: 28px;
+  position: relative;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.pd-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--p-green) 0%, transparent 60%);
+  opacity: 0.4;
+}
+
+.pd-card:hover {
+  border-color: rgba(0, 255, 157, 0.2);
+  transform: translateY(-2px);
+}
+
+/* ── Node circle ─────────────────────────────────────────── */
+.pd-node {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--p-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-signal);
+  font-size: 10px;
+  color: var(--p-green);
+  background: rgba(0, 255, 157, 0.08);
+  box-shadow: 0 0 12px rgba(0, 255, 157, 0.2), inset 0 0 12px rgba(0, 255, 157, 0.05);
+  position: relative;
+}
+
+.pd-node.jammed {
+  border-color: var(--p-red);
+  color: var(--p-red);
+  background: rgba(255, 77, 79, 0.08);
+  box-shadow: 0 0 12px rgba(255, 77, 79, 0.3);
+}
+
+.pd-node.active {
+  border-color: var(--p-amber);
+  color: var(--p-amber);
+  background: rgba(255, 176, 32, 0.08);
+  box-shadow: 0 0 12px rgba(255, 176, 32, 0.3);
+}
+
+/* ── Stat counter ────────────────────────────────────────── */
+.pd-stat {
+  font-family: var(--font-military);
+  font-weight: 900;
+  font-size: 56px;
+  line-height: 1;
+  color: var(--p-green);
+  text-shadow: 0 0 20px rgba(0, 255, 157, 0.4);
+}
+
+/* ── Progress / freq bar ─────────────────────────────────── */
+.pd-freq-bar {
+  height: 3px;
+  background: var(--p-green);
+  border-radius: 1px;
+  box-shadow: 0 0 6px var(--p-green);
+  transform-origin: left;
+}
+
+.pd-freq-bar.jammed {
+  background: var(--p-red);
+  box-shadow: 0 0 6px var(--p-red);
+}
+
+/* ── Scrollbar override for pitch deck ───────────────────── */
+.pitch-deck::-webkit-scrollbar {
+  width: 3px;
+}
+
+.pitch-deck::-webkit-scrollbar-track {
+  background: var(--p-bg);
+}
+
+.pitch-deck::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 157, 0.2);
+  border-radius: 2px;
+}
+
+/* ── Keyframe Animations ─────────────────────────────────── */
+@keyframes pd-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
+
+@keyframes pd-radar-sweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes pd-signal-pulse {
+  0%   { transform: scale(1); opacity: 0.8; }
+  50%  { transform: scale(1.15); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+@keyframes pd-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@keyframes pd-scan-h {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  10%  { opacity: 0.6; }
+  90%  { opacity: 0.6; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+@keyframes pd-packet-move {
+  0%   { left: 0%; opacity: 0; }
+  5%   { opacity: 1; }
+  95%  { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+@keyframes pd-packet-bounce {
+  0%   { left: 40%; }
+  50%  { left: 10%; }
+  100% { left: 40%; }
+}
+
+@keyframes pd-node-appear {
+  0%   { transform: scale(0) rotate(-90deg); opacity: 0; }
+  60%  { transform: scale(1.15) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes pd-link-draw {
+  from { stroke-dashoffset: 200; }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes pd-countup-flash {
+  0%   { color: var(--p-amber); }
+  100% { color: var(--p-green); }
+}
+
+@keyframes pd-flicker {
+  0%, 100% { opacity: 1; }
+  92%       { opacity: 1; }
+  93%       { opacity: 0.4; }
+  94%       { opacity: 1; }
+  96%       { opacity: 0.7; }
+  97%       { opacity: 1; }
+}
+
+/* ── Section navigation dots ─────────────────────────────── */
+.pd-nav-dots {
+  position: fixed;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pd-nav-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--p-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pd-nav-dot.active {
+  background: var(--p-green);
+  box-shadow: 0 0 8px var(--p-green);
+  transform: scale(1.4);
+}
+
+/* ── Top status bar ─────────────────────────────────────── */
+.pd-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1050;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  background: rgba(8, 10, 14, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--p-divider);
+}
+
+/* ── RF waveform bars ───────────────────────────────────── */
+.pd-rf-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--p-green);
+  opacity: 0.7;
+  animation: pd-rf-wave 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes pd-rf-wave {
+  from { transform: scaleY(0.2); }
+  to   { transform: scaleY(1); }
+}
+
+/* ── Algorithm step ─────────────────────────────────────── */
+.pd-algo-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--p-divider);
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: all 0.4s ease;
+}
+
+.pd-algo-step.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.pd-algo-num {
+  font-family: var(--font-signal);
+  font-size: 11px;
+  color: var(--p-green);
+  width: 28px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+/* ── Comparison table ────────────────────────────────────── */
+.pd-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+
+.pd-compare-col {
+  padding: 24px;
+  background: var(--p-surface);
+}
+
+.pd-compare-col.ours {
+  background: var(--p-surface2);
+  border: 1px solid rgba(0, 255, 157, 0.15);
+}
+
+.pd-compare-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--p-divider);
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--p-text2);
+}
+
+.pd-compare-row .check-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ── Hardware grid ──────────────────────────────────────── */
+.pd-hw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.pd-hw-card {
+  padding: 24px;
+  background: var(--p-surface);
+  border: 1px solid var(--p-divider);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.pd-hw-card:hover {
+  border-color: rgba(0, 255, 157, 0.25);
+  transform: translateY(-3px);
+}
+
+.pd-hw-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--p-green), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.pd-hw-card:hover::after {
+  opacity: 1;
+}
+
+/* ── Software stack ─────────────────────────────────────── */
+.pd-stack-layer {
+  padding: 16px 24px;
+  background: var(--p-surface);
+  border: 1px solid var(--p-divider);
+  border-left: 3px solid var(--p-green);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  opacity: 0;
+  transform: translateX(-30px);
+  transition: all 0.4s ease;
+}
+
+.pd-stack-layer.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ── Scroll progress indicator ───────────────────────────── */
+.pd-scroll-progress {
+  position: fixed;
+  top: 44px;
+  left: 0;
+  height: 2px;
+  background: var(--p-green);
+  box-shadow: 0 0 8px var(--p-green);
+  z-index: 1050;
+  transition: width 0.1s linear;
+}
+
+/* ── Hero canvas container ───────────────────────────────── */
+.pd-hero-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ── Responsive adjustments ──────────────────────────────── */
+@media (max-width: 768px) {
+  .pd-container {
+    padding: 0 24px;
+  }
+
+  .pd-compare-grid {
+    grid-template-columns: 1fr;
+  }
+}
