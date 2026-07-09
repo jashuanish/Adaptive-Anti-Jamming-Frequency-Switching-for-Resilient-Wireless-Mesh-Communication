@@ -3,7 +3,7 @@ import CommandScene from '../athena/scene/CommandScene'
 import AlertToast from '../components/ui/AlertToast'
 import CommandBar from './CommandBar'
 import LeftNav from './LeftNav'
-import ContextPanel from './ContextPanel'
+import HUD from '../athena/hud/HUD'
 import Console from './Console'
 import HardwarePanel from './HardwarePanel'
 import { useAthena } from '../athena/store'
@@ -187,10 +187,10 @@ export default function AppShell() {
 
               {/* Bottom status bar overlay */}
               <WorkspaceLabel tel={tel} />
-            </main>
 
-            {/* Right context panel */}
-            <ContextPanel />
+              {/* HUD overlay */}
+              <HUD />
+            </main>
           </>
         )}
       </div>

@@ -3,477 +3,289 @@ import Button from '../components/ui/Button'
 import StatusPill from '../components/ui/StatusPill'
 import ProgressBar from '../components/ui/ProgressBar'
 import MetricTile from '../components/ui/MetricTile'
+import { useMultiSerialStream } from '../lib/hardware'
 
 export default function HardwarePanel() {
-  const [step, setStep] = useState('INIT') // 'INIT' | 'SCANNING' | 'DEVICES' | 'CONNECTING' | 'ONLINE'
-  const [scanProgress, setScanProgress] = useState(0)
-  const [scanLogs, setScanLogs] = useState([])
-  const [devices, setDevices] = useState([
-    { id: 'dev1', name: 'ESP32-S3 Node Alpha', port: 'COM3', firmware: 'v2.4.1', battery: 94, signal: -58, temp: 32.4, role: 'sender', status: 'STANDBY', health: 'Nominal' },
-    { id: 'dev2', name: 'ESP32-S3 Node Beta',  port: 'COM4', firmware: 'v2.4.1', battery: 89, signal: -62, temp: 34.1, role: 'receiver', status: 'STANDBY', health: 'Nominal' },
-    { id: 'dev3', name: 'ESP32-S3 Node Gamma', port: 'COM5', firmware: 'v2.4.1', battery: 76, signal: -78, temp: 38.6, role: 'jammer', status: 'STANDBY', health: 'Nominal' }
-  ])
-  const [connectProgress, setConnectProgress] = useState(0)
-  const [connectLogs, setConnectLogs] = useState([])
-  const [chatMessages, setChatMessages] = useState([
-    { sender: 'SYSTEM', msg: 'Secure channel initialized using AES-128 encryption.', ts: '11:04:12' },
-    { sender: 'Alpha', msg: 'System check complete. Nodes responding.', ts: '11:04:45' },
-    { sender: 'Beta', msg: 'Receiver sync signal locked.', ts: '11:05:01' }
-  ])
+  const [step, setStep] = useState('INIT') // 'INIT' | 'DEVICES' | 'ONLINE'
+  const [chatMessages, setChatMessages] = useState([])
   const [inputMsg, setInputMsg] = useState('')
+  const [jamTargetChannel, setJamTargetChannel] = useState(76)
+  
+  // Local state to track selections before applying them
+  const [deviceConfigs, setDeviceConfigs] = useState({})
+  // Send message target
+  const [chatTargetId, setChatTargetId] = useState(null)
+
   const [telemetry, setTelemetry] = useState({
-    packetRate: 120,
-    rssi: -62,
+    packetRate: 0,
+    rssi: -60,
     noiseFloor: -98,
     temp: 34.1,
     jamIntensity: 0,
-    isJammingDetected: false
+    isJammingDetected: false,
+    cleanChannel: null
   })
 
-  const logContainerRef = useRef(null)
   const chatEndRef = useRef(null)
 
-  // Simulation of Live Telemetry when Online
-  useEffect(() => {
-    if (step !== 'ONLINE') return
-    const interval = setInterval(() => {
-      setTelemetry(prev => {
-        const isJammed = Math.random() < 0.15 || prev.jamIntensity > 0
-        const randJam = isJammed ? Math.floor(Math.random() * 40) + 60 : 0
-        const currentRate = isJammed ? Math.floor(Math.random() * 40) + 20 : Math.floor(Math.random() * 15) + 110
-        const currentRssi = isJammed ? -92 + Math.floor(Math.random() * 10) : -60 + Math.floor(Math.random() * 6)
-        
-        return {
-          packetRate: currentRate,
-          rssi: currentRssi,
-          noiseFloor: isJammed ? -72 : -98 + Math.floor(Math.random() * 4),
-          temp: parseFloat((34.1 + Math.sin(Date.now() / 10000) * 1.5).toFixed(1)),
-          jamIntensity: randJam,
-          isJammingDetected: isJammed
-        }
-      })
-    }, 1500)
-    return () => clearInterval(interval)
-  }, [step])
-
-  // Scanning Progress Logic
-  useEffect(() => {
-    if (step !== 'SCANNING') return
-    setScanProgress(0)
-    setScanLogs([])
+  const onLineReceived = (id, line) => {
+    // Parse ESP32 logs
+    const ts = new Date().toLocaleTimeString('en-US', { hour12: false })
     
-    const logs = [
-      'Initializing hardware bridge link...',
-      'Searching local USB controller interfaces...',
-      'USB Host Controller detected (Silicon Labs CP210x Drivers loaded)',
-      'Scanning serial COM ports for active hardware...',
-      'COM3 [ESP32-S3 Node] response received',
-      'COM4 [ESP32-S3 Node] response received',
-      'COM5 [ESP32-S3 Node] response received',
-      'Querying device firmware status registers...',
-      'Hardware enumeration verification complete.'
-    ]
-
-    let logIndex = 0
-    const logInterval = setInterval(() => {
-      if (logIndex < logs.length) {
-        setScanLogs(prev => [...prev, `[${new Date().toISOString().slice(11, 19)}] ${logs[logIndex]}`])
-        logIndex++
-      }
-    }, 450)
-
-    const progressInterval = setInterval(() => {
-      setScanProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(progressInterval)
-          clearInterval(logInterval)
-          setTimeout(() => setStep('DEVICES'), 500)
-          return 100
-        }
-        return prev + 4
-      })
-    }, 100)
-
-    return () => {
-      clearInterval(progressInterval)
-      clearInterval(logInterval)
+    // Check if it's a chat message
+    if (line.includes('[RECV] <<')) {
+      const msg = line.split('[RECV] <<')[1].trim()
+      setChatMessages(prev => [...prev, { sender: `Node (${id})`, msg, ts, id }])
     }
-  }, [step])
-
-  // Handshake Connection Logic
-  useEffect(() => {
-    if (step !== 'CONNECTING') return
-    setConnectProgress(0)
-    setConnectLogs([])
-
-    const logs = [
-      'Establishing physical RF link on 2.484 GHz...',
-      'Broadcasting cryptographic sync beacon (AES-128)...',
-      'Sender role assigned to Alpha [COM3]',
-      'Receiver role assigned to Beta [COM4]',
-      'Jammer threat role assigned to Gamma [COM5]',
-      'Performing frequency hop table distribution...',
-      'Hop pattern synchronized [Channels: 12, 34, 56, 78, 90]',
-      'Exchange sequence handshake OK',
-      'Hardware RF communication link ONLINE.'
-    ]
-
-    let logIndex = 0
-    const logInterval = setInterval(() => {
-      if (logIndex < logs.length) {
-        setConnectLogs(prev => [...prev, `[${new Date().toISOString().slice(11, 19)}] ${logs[logIndex]}`])
-        logIndex++
-      }
-    }, 500)
-
-    const progressInterval = setInterval(() => {
-      setConnectProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(progressInterval)
-          clearInterval(logInterval)
-          setTimeout(() => setStep('ONLINE'), 500)
-          return 100
-        }
-        return prev + 5
-      })
-    }, 120)
-
-    return () => {
-      clearInterval(progressInterval)
-      clearInterval(logInterval)
+    else if (line.includes('[SENT] >>')) {
+      const msg = line.split('[SENT] >>')[1].trim()
+      setChatMessages(prev => [...prev, { sender: `Node (${id}) [SENT]`, msg, ts, id, dim: true }])
     }
-  }, [step])
-
-  // Auto-scroll logs
-  useEffect(() => {
-    if (logContainerRef.current) {
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight
+    else if (line.includes('[JAMMER]')) {
+      setChatMessages(prev => [...prev, { sender: 'SYSTEM', msg: line, ts, sys: true }])
     }
-  }, [scanLogs, connectLogs])
+    else if (line.includes('[ALERT] Interference detected')) {
+      setTelemetry(prev => ({ ...prev, isJammingDetected: true, jamIntensity: 85 }))
+      setChatMessages(prev => [...prev, { sender: 'SYSTEM', msg: '⚠ INTERFERENCE DETECTED', ts, sys: true }])
+    }
+    else if (line.includes('[SECURE] Clean channel acquired:')) {
+      const ch = line.split('acquired:')[1].trim()
+      setTelemetry(prev => ({ ...prev, isJammingDetected: false, jamIntensity: 0, cleanChannel: ch }))
+      setChatMessages(prev => [...prev, { sender: 'SYSTEM', msg: `✓ CHANNEL HOP SUCCESS -> CH ${ch}`, ts, sys: true }])
+    }
+    else {
+      // Add all other system logs to chat as info
+      setChatMessages(prev => [...prev, { sender: 'LOG', msg: line, ts, sys: true, dim: true }])
+    }
+  }
 
-  // Auto-scroll chat
+  const { devices, connect, disconnect, sendCommand, updateDeviceRole } = useMultiSerialStream(115200, onLineReceived)
+
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
   }, [chatMessages])
+  
+  useEffect(() => {
+    // Auto-select chat target if none selected and there are devices
+    if (!chatTargetId && devices.length > 0) {
+      const validTarget = devices.find(d => d.role === 'sender' || d.role === 'receiver')
+      if (validTarget) setChatTargetId(validTarget.id)
+    }
+  }, [devices, chatTargetId])
 
-  const handleStartScan = () => {
-    setStep('SCANNING')
+  const handleStartScan = async () => {
+    const id = await connect()
+    if (id) {
+      setStep('DEVICES')
+      setDeviceConfigs(prev => ({ ...prev, [id]: { display: '4', role: 'sender', configured: false } }))
+    }
   }
 
-  const handleRoleChange = (id, newRole) => {
-    setDevices(prev => prev.map(d => {
-      if (d.id === id) return { ...d, role: newRole }
-      // Enforce unique roles
-      if (d.role === newRole) return { ...d, role: 'none' }
-      return d
+  const updateConfig = (id, key, val) => {
+    setDeviceConfigs(prev => ({
+      ...prev,
+      [id]: { ...prev[id], [key]: val }
     }))
   }
 
+  const handleApplyConfig = (id) => {
+    const conf = deviceConfigs[id]
+    if (!conf) return
+
+    // 1. Send display
+    sendCommand(id, conf.display)
+    
+    // 2. Wait a little bit, then send role
+    setTimeout(() => {
+      const roleNum = conf.role === 'sender' ? '1' : conf.role === 'receiver' ? '2' : '3'
+      sendCommand(id, roleNum)
+      updateDeviceRole(id, conf.role)
+      
+      // Mark as configured
+      updateConfig(id, 'configured', true)
+    }, 500)
+  }
+
   const handleInitializeNetwork = () => {
-    setStep('CONNECTING')
+    const jammer = devices.find(d => d.role === 'jammer')
+    if (jammer) {
+      setTimeout(() => {
+        sendCommand(jammer.id, jamTargetChannel.toString())
+      }, 500)
+    }
+    setStep('ONLINE')
   }
 
   const handleSendMessage = (e) => {
     e.preventDefault()
     if (!inputMsg.trim()) return
 
-    const ts = new Date().toISOString().slice(11, 19)
-    const newMsg = { sender: 'OPERATOR', msg: inputMsg, ts }
-    setChatMessages(prev => [...prev, newMsg])
+    if (chatTargetId) {
+      sendCommand(chatTargetId, inputMsg)
+      
+      // Manually add the sent message from the UI to the chat list (so the user sees "ME: msg")
+      // The ESP32's [SENT] >> msg will also be logged, but visually dimmed.
+      const ts = new Date().toLocaleTimeString('en-US', { hour12: false })
+      setChatMessages(prev => [...prev, { sender: 'ME', msg: inputMsg, ts, isOp: true }])
+    }
     setInputMsg('')
+  }
 
-    // Simulate response sequence
-    setTimeout(() => {
-      setChatMessages(prev => [...prev, {
-        sender: 'Beta',
-        msg: `ACK received. Link RSSI: ${telemetry.rssi} dBm. Packet index verified.`,
-        ts: new Date().toISOString().slice(11, 19)
-      }])
-    }, 1000)
+  const handleJamToggle = (start) => {
+    const jammerDev = devices.find(d => d.role === 'jammer')
+    if (jammerDev) {
+      sendCommand(jammerDev.id, start ? '/jam' : '/antijam')
+    }
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      width: '100%',
-      background: 'var(--surface-1)',
-      overflowY: 'auto'
-    }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', background: 'var(--surface-1)', overflowY: 'auto' }}>
       {/* Header */}
-      <div style={{
-        padding: '16px var(--sp-4)',
-        borderBottom: '1px solid var(--divider)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        background: 'var(--surface-2)'
-      }}>
+      <div style={{ padding: '16px var(--sp-4)', borderBottom: '1px solid var(--divider)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface-2)' }}>
         <div>
           <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-1)' }}>Hardware Operations Dashboard</h2>
-          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>Direct serial link control to ESP32 nodes using RF physical transceivers</p>
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>Direct serial link control to ESP32 nodes</p>
         </div>
         <div>
           <StatusPill 
             variant={step === 'ONLINE' ? 'nominal' : step === 'INIT' ? 'muted' : 'warning'} 
             label={step === 'ONLINE' ? 'HARDWARE ONLINE' : step === 'DEVICES' ? 'READY TO SYNC' : 'HARDWARE STANDBY'} 
-            pulse={step === 'ONLINE' || step === 'SCANNING' || step === 'CONNECTING'}
+            pulse={step === 'ONLINE'}
           />
         </div>
       </div>
 
-      {/* Mode Screens */}
       <div style={{ flex: 1, padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', minHeight: 0 }}>
         
-        {/* INIT state */}
-        {step === 'INIT' && (
-          <div style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: '1px dashed var(--divider-strong)',
-            borderRadius: 'var(--radius-lg)',
-            background: 'var(--surface-2)',
-            padding: '40px',
-            textAlign: 'center'
-          }}>
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.5" style={{ marginBottom: '16px' }}>
-              <rect x="2" y="2" width="20" height="8" rx="2" />
-              <rect x="2" y="14" width="20" height="8" rx="2" />
-              <line x1="6" y1="6" x2="6.01" y2="6" strokeWidth="2" strokeLinecap="round" />
-              <line x1="18" y1="18" x2="18.01" y2="18" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+        {step === 'INIT' && devices.length === 0 && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--divider-strong)', borderRadius: 'var(--radius-lg)', background: 'var(--surface-2)', padding: '40px', textAlign: 'center' }}>
             <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 500, color: 'var(--text-1)', marginBottom: '8px' }}>No active hardware link</h3>
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--muted)', maxWidth: '400px', marginBottom: '24px' }}>
-              Connect ESP32 / NRF modules to your local USB ports and scan COM interfaces to establish dynamic hardware operation.
+              Connect ESP32 / NRF modules to your local USB ports to establish dynamic hardware operation.
             </p>
-            <Button variant="primary" onClick={handleStartScan}>
-              Scan USB COM Ports
-            </Button>
+            <Button variant="primary" onClick={handleStartScan}>Add Device via Web Serial</Button>
           </div>
         )}
 
-        {/* SCANNING State */}
-        {step === 'SCANNING' && (
-          <div style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--sp-4)',
-            maxWidth: '800px',
-            margin: '0 auto',
-            width: '100%',
-            justifyContent: 'center'
-          }}>
-            <div className="panel" style={{ padding: '24px', background: 'var(--surface-2)' }}>
-              <div style={{ marginBottom: '16px' }}>
-                <span className="text-label">System Hardware Probe</span>
-                <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, marginTop: '4px' }}>Scanning COM Interfaces & RF Modules...</h3>
-              </div>
-              
-              <ProgressBar value={scanProgress / 100} variant="primary" height={6} label="Scan Progress" />
-              
-              {/* Scan Log Terminal */}
-              <div 
-                ref={logContainerRef}
-                style={{
-                  height: '200px',
-                  background: 'var(--bg)',
-                  border: '1px solid var(--divider)',
-                  borderRadius: 'var(--radius-sm)',
-                  marginTop: '20px',
-                  padding: '12px',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--text-2)',
-                  overflowY: 'auto',
-                  lineHeight: '1.6'
-                }}
-              >
-                {scanLogs.map((log, i) => (
-                  <div key={i}>{log}</div>
-                ))}
-                <div className="animate-blink" style={{ display: 'inline-block', width: '6px', height: '12px', background: 'var(--muted)', marginLeft: '4px' }}></div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* DEVICES Config State */}
-        {step === 'DEVICES' && (
+        {(step === 'DEVICES' || (step === 'INIT' && devices.length > 0)) && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-            <div>
-              <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 500, color: 'var(--text-1)', marginBottom: '4px' }}>Detected Hardware Modules</h3>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>Assign node operational roles to initialize target mesh topology</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 500, color: 'var(--text-1)', marginBottom: '4px' }}>Detected Hardware Modules</h3>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>Configure displays and assign operational roles.</p>
+              </div>
+              <Button variant="ghost" onClick={handleStartScan}>+ Add Another Device</Button>
             </div>
 
-            {/* Devices grid */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: 'var(--sp-4)'
-            }}>
-              {devices.map(dev => (
-                <div key={dev.id} className="panel" style={{
-                  padding: '16px',
-                  background: 'var(--surface-2)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <h4 style={{ fontWeight: 600, color: 'var(--text-1)' }}>{dev.name}</h4>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
-                        {dev.port} · FW {dev.firmware}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--sp-4)' }}>
+              {devices.map(dev => {
+                const conf = deviceConfigs[dev.id] || { display: '4', role: 'sender', configured: false }
+                
+                return (
+                  <div key={dev.id} className="panel" style={{ padding: '16px', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <h4 style={{ fontWeight: 600, color: 'var(--text-1)' }}>{dev.name}</h4>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>Web Serial API</span>
+                      </div>
+                      <span style={{
+                        padding: '2px 6px',
+                        background: conf.configured ? 'var(--success-dim)' : 'var(--surface-3)',
+                        color: conf.configured ? 'var(--success-text)' : 'var(--muted)',
+                        border: '1px solid var(--divider)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '9px',
+                        fontFamily: 'var(--font-mono)',
+                        textTransform: 'uppercase',
+                        fontWeight: 600
+                      }}>
+                        {conf.configured ? dev.role : 'NOT CONFIGURED'}
                       </span>
                     </div>
-                    <span style={{
-                      padding: '2px 6px',
-                      background: dev.role === 'sender' ? 'var(--success-dim)' : dev.role === 'receiver' ? 'var(--primary-dim)' : dev.role === 'jammer' ? 'var(--danger-dim)' : 'var(--surface-3)',
-                      color: dev.role === 'sender' ? 'var(--success-text)' : dev.role === 'receiver' ? 'var(--primary)' : dev.role === 'jammer' ? 'var(--danger-text)' : 'var(--muted)',
-                      border: '1px solid var(--divider)',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '9px',
-                      fontFamily: 'var(--font-mono)',
-                      textTransform: 'uppercase',
-                      fontWeight: 600
-                    }}>
-                      {dev.role}
-                    </span>
-                  </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: 'var(--text-xs)' }}>
-                    <div>
-                      <span style={{ color: 'var(--muted)' }}>Battery:</span>
-                      <span style={{ marginLeft: '4px', fontFamily: 'var(--font-mono)', color: 'var(--text-1)' }}>{dev.battery}%</span>
-                    </div>
-                    <div>
-                      <span style={{ color: 'var(--muted)' }}>Signal:</span>
-                      <span style={{ marginLeft: '4px', fontFamily: 'var(--font-mono)', color: 'var(--text-1)' }}>{dev.signal} dBm</span>
-                    </div>
-                    <div>
-                      <span style={{ color: 'var(--muted)' }}>Health:</span>
-                      <span style={{ marginLeft: '4px', color: 'var(--success-text)', fontWeight: 500 }}>{dev.health}</span>
-                    </div>
-                    <div>
-                      <span style={{ color: 'var(--muted)' }}>Temp:</span>
-                      <span style={{ marginLeft: '4px', fontFamily: 'var(--font-mono)', color: 'var(--text-1)' }}>{dev.temp} °C</span>
-                    </div>
-                  </div>
+                    <div style={{ height: '1px', background: 'var(--divider)' }}></div>
 
-                  <div style={{ height: '1px', background: 'var(--divider)' }}></div>
-
-                  {/* Role assignment selectors */}
-                  <div>
-                    <span className="text-label" style={{ display: 'block', marginBottom: '6px' }}>Assign Operational Role</span>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      {['sender', 'receiver', 'jammer'].map(r => (
-                        <button
-                          key={r}
-                          onClick={() => handleRoleChange(dev.id, r)}
-                          style={{
-                            flex: 1,
-                            padding: '4px 6px',
-                            background: dev.role === r ? 'var(--surface-3)' : 'transparent',
-                            border: `1px solid ${dev.role === r ? 'var(--primary)' : 'var(--divider)'}`,
-                            borderRadius: 'var(--radius-sm)',
-                            color: dev.role === r ? 'var(--primary)' : 'var(--text-2)',
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: '9px',
-                            cursor: 'pointer',
-                            textTransform: 'uppercase',
-                            transition: 'all var(--dur-fast)'
-                          }}
-                        >
-                          {r}
-                        </button>
-                      ))}
+                    <div>
+                      <span className="text-label" style={{ display: 'block', marginBottom: '6px' }}>1. Display Selection</span>
+                      <select 
+                        disabled={conf.configured}
+                        value={conf.display}
+                        onChange={(e) => updateConfig(dev.id, 'display', e.target.value)}
+                        style={{ width: '100%', padding: '6px', background: 'var(--bg)', color: 'white', border: '1px solid var(--divider)', borderRadius: 4, fontFamily: 'var(--font-mono)', fontSize: '11px' }}
+                      >
+                        <option value="1">TFT (ST7735)</option>
+                        <option value="2">LCD (I2C 16x2)</option>
+                        <option value="3">OLED (SSD1306)</option>
+                        <option value="4">None</option>
+                      </select>
                     </div>
+
+                    <div>
+                      <span className="text-label" style={{ display: 'block', marginBottom: '6px' }}>2. Operational Role</span>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {['sender', 'receiver', 'jammer'].map(r => (
+                          <button
+                            key={r}
+                            disabled={conf.configured}
+                            onClick={() => updateConfig(dev.id, 'role', r)}
+                            style={{
+                              flex: 1, padding: '4px 6px',
+                              background: conf.role === r ? 'var(--surface-3)' : 'transparent',
+                              border: `1px solid ${conf.role === r ? 'var(--primary)' : 'var(--divider)'}`,
+                              borderRadius: 'var(--radius-sm)',
+                              color: conf.role === r ? 'var(--primary)' : 'var(--text-2)',
+                              fontFamily: 'var(--font-mono)', fontSize: '9px', cursor: conf.configured ? 'default' : 'pointer', textTransform: 'uppercase'
+                            }}
+                          >
+                            {r}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {conf.role === 'jammer' && (
+                      <div style={{ marginTop: 4 }}>
+                        <span className="text-label" style={{ display: 'block', marginBottom: '6px' }}>Target Jamming Channel</span>
+                        <input type="number" disabled={conf.configured} value={jamTargetChannel} onChange={(e) => setJamTargetChannel(e.target.value)} style={{ width: '100%', padding: '4px', background: 'var(--bg)', color: 'white', border: '1px solid var(--divider)', borderRadius: 4 }} />
+                      </div>
+                    )}
+                    
+                    {!conf.configured ? (
+                      <Button variant="primary" onClick={() => handleApplyConfig(dev.id)}>Apply Configuration</Button>
+                    ) : (
+                      <Button variant="danger" onClick={() => {
+                        disconnect(dev.id)
+                        setDeviceConfigs(prev => {
+                          const n = {...prev}
+                          delete n[dev.id]
+                          return n
+                        })
+                      }}>Disconnect Device</Button>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <Button variant="ghost" onClick={() => setStep('INIT')}>Cancel</Button>
-              <Button variant="primary" onClick={handleInitializeNetwork}>
-                Initialize Hardware Network
+              <Button variant="primary" onClick={handleInitializeNetwork} disabled={devices.length === 0 || devices.some(d => !(deviceConfigs[d.id]?.configured))}>
+                Enter Dashboard
               </Button>
             </div>
           </div>
         )}
 
-        {/* CONNECTING state */}
-        {step === 'CONNECTING' && (
-          <div style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--sp-4)',
-            maxWidth: '800px',
-            margin: '0 auto',
-            width: '100%',
-            justifyContent: 'center'
-          }}>
-            <div className="panel" style={{ padding: '24px', background: 'var(--surface-2)' }}>
-              <div style={{ marginBottom: '16px' }}>
-                <span className="text-label">AES-128 Sync Handshake Sequence</span>
-                <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, marginTop: '4px' }}>Initializing Cryptographic Signal Link...</h3>
-              </div>
-              
-              <ProgressBar value={connectProgress / 100} variant="success" height={6} label="Negotiating Sync State" />
-              
-              {/* Handshake Log Terminal */}
-              <div 
-                ref={logContainerRef}
-                style={{
-                  height: '200px',
-                  background: 'var(--bg)',
-                  border: '1px solid var(--divider)',
-                  borderRadius: 'var(--radius-sm)',
-                  marginTop: '20px',
-                  padding: '12px',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--text-2)',
-                  overflowY: 'auto',
-                  lineHeight: '1.6'
-                }}
-              >
-                {connectLogs.map((log, i) => (
-                  <div key={i}>{log}</div>
-                ))}
-                <div className="animate-blink" style={{ display: 'inline-block', width: '6px', height: '12px', background: 'var(--muted)', marginLeft: '4px' }}></div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ONLINE State */}
         {step === 'ONLINE' && (
-          <div style={{
-            flex: 1,
-            display: 'grid',
-            gridTemplateColumns: '320px 1fr',
-            gap: 'var(--sp-4)',
-            minHeight: 0
-          }}>
+          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '320px 1fr', gap: 'var(--sp-4)', minHeight: 0 }}>
             
-            {/* Sidebar Telemetry Column */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
               <div className="panel" style={{ padding: '16px', background: 'var(--surface-2)' }}>
                 <h4 className="text-label" style={{ marginBottom: '12px' }}>Operational Parameters</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <MetricTile label="RF PACKET RATE" value={telemetry.packetRate} unit="pkt/sec" variant={telemetry.isJammingDetected ? 'warning' : 'nominal'} />
+                  <MetricTile label="ACTIVE CHANNEL" value={telemetry.cleanChannel || '76'} unit="CH" />
                   <MetricTile label="LINK QUALITY (RSSI)" value={telemetry.rssi} unit="dBm" variant={telemetry.rssi < -80 ? 'danger' : 'default'} />
                   <MetricTile label="NOISE FLOOR" value={telemetry.noiseFloor} unit="dBm" />
-                  <MetricTile label="NODE TEMP" value={`${telemetry.temp}`} unit="°C" />
                 </div>
               </div>
 
@@ -504,67 +316,48 @@ export default function HardwarePanel() {
                   }}>
                     {telemetry.isJammingDetected ? '⚠ ACTIVE RF ATTACK DETECTED' : '✓ LINK SPECTRUM NOMINAL'}
                   </div>
+
+                  {devices.some(d => d.role === 'jammer') && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                      <Button variant="danger" fullWidth onClick={() => handleJamToggle(true)}>Start Jam</Button>
+                      <Button variant="success" fullWidth onClick={() => handleJamToggle(false)}>Stop Jam</Button>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <Button variant="ghost" fullWidth onClick={() => setStep('DEVICES')}>
-                Reconfigure Roles
+                Back to Devices
               </Button>
             </div>
 
-            {/* Chat & Logs Window Column */}
-            <div className="panel" style={{
-              background: 'var(--surface-2)',
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: 0
-            }}>
+            <div className="panel" style={{ background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               
-              {/* Secure Chat Header */}
-              <div style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid var(--divider)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--divider)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} className="animate-pulse-dot"></span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: '0.08em', color: 'var(--text-1)' }}>
-                  SECURE CHAT LINK [AES-128-CBC]
+                  SECURE CHAT LINK [SERIAL]
                 </span>
               </div>
 
-              {/* Chat Message Stream */}
-              <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px'
-              }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {chatMessages.map((msg, i) => {
-                  const isOp = msg.sender === 'OPERATOR'
-                  const isSys = msg.sender === 'SYSTEM'
+                  const isOp = msg.isOp
+                  const isSys = msg.sys
                   
                   return (
                     <div key={i} style={{
-                      display: 'flex',
-                      flexDirection: 'column',
+                      display: 'flex', flexDirection: 'column',
                       alignItems: isOp ? 'flex-end' : 'flex-start',
                       maxWidth: '85%',
-                      alignSelf: isOp ? 'flex-end' : 'flex-start'
+                      alignSelf: isOp ? 'flex-end' : 'flex-start',
+                      opacity: msg.dim ? 0.6 : 1
                     }}>
                       <div style={{
-                        display: 'flex',
-                        alignItems: 'baseline',
-                        gap: '6px',
-                        marginBottom: '2px',
-                        fontSize: '9px',
-                        fontFamily: 'var(--font-mono)',
-                        color: 'var(--muted)'
+                        display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '2px',
+                        fontSize: '9px', fontFamily: 'var(--font-mono)', color: 'var(--muted)'
                       }}>
-                        <span style={{ fontWeight: 600, color: isOp ? 'var(--primary)' : isSys ? 'var(--danger-text)' : 'var(--text-2)' }}>
+                        <span style={{ fontWeight: 600, color: isOp ? 'var(--primary)' : isSys ? 'var(--warning-text)' : 'var(--text-2)' }}>
                           {msg.sender}
                         </span>
                         <span>{msg.ts}</span>
@@ -573,7 +366,7 @@ export default function HardwarePanel() {
                       <div style={{
                         padding: '8px 12px',
                         background: isOp ? 'var(--primary)' : isSys ? 'var(--surface-4)' : 'var(--surface-3)',
-                        color: isOp ? '#fff' : 'var(--text-1)',
+                        color: isOp ? '#fff' : (isSys ? 'var(--warning-text)' : 'var(--text-1)'),
                         borderRadius: 'var(--radius-md)',
                         fontSize: 'var(--text-sm)',
                         fontFamily: isSys ? 'var(--font-mono)' : 'var(--font-sans)',
@@ -589,39 +382,28 @@ export default function HardwarePanel() {
                 <div ref={chatEndRef}></div>
               </div>
 
-              {/* Chat Message Input */}
-              <form onSubmit={handleSendMessage} style={{
-                padding: '12px',
-                borderTop: '1px solid var(--divider)',
-                background: 'var(--surface-1)',
-                display: 'flex',
-                gap: '8px'
-              }}>
+              <form onSubmit={handleSendMessage} style={{ padding: '12px', borderTop: '1px solid var(--divider)', background: 'var(--surface-1)', display: 'flex', gap: '8px' }}>
+                <select 
+                  value={chatTargetId || ''} 
+                  onChange={(e) => setChatTargetId(e.target.value)}
+                  style={{ background: 'var(--bg)', color: 'white', border: '1px solid var(--divider)', borderRadius: 4, padding: '0 8px', fontFamily: 'var(--font-mono)', fontSize: '11px' }}
+                >
+                  {devices.filter(d => d.role === 'sender' || d.role === 'receiver').map(d => (
+                    <option key={d.id} value={d.id}>Send from {d.role}</option>
+                  ))}
+                </select>
                 <input
                   type="text"
-                  placeholder="Transmit message to hardware RX node..."
+                  placeholder="Transmit message to network..."
                   value={inputMsg}
                   onChange={e => setInputMsg(e.target.value)}
-                  style={{
-                    flex: 1,
-                    background: 'var(--bg)',
-                    border: '1px solid var(--divider)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '8px 12px',
-                    color: 'var(--text-1)',
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: 'var(--text-sm)',
-                    outline: 'none'
-                  }}
+                  style={{ flex: 1, background: 'var(--bg)', border: '1px solid var(--divider)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', color: 'var(--text-1)', fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', outline: 'none' }}
                 />
-                <Button variant="primary" type="submit">Send</Button>
+                <Button variant="primary" type="submit" disabled={!chatTargetId}>Send</Button>
               </form>
-
             </div>
-
           </div>
         )}
-
       </div>
     </div>
   )

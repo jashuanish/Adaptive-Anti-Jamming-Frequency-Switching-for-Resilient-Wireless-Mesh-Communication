@@ -92,36 +92,89 @@ export function useHardwareSocket(event, serverUrl = '/') {
 }
 
 /**
- * useSerialStream() → { lines, connect, connected }
- * Manages a Web Serial connection with React state.
+ * useMultiSerialStream() → { devices, connect, disconnect, sendCommand, updateDeviceRole }
+ * Manages multiple Web Serial connections with React state.
  */
-export function useSerialStream(baudRate = 9600) {
-  const [lines, setLines] = useState([])
-  const [connected, setConnected] = useState(false)
-  const portRef = useRef(null)
-  const abortRef = useRef(null)
+export function useMultiSerialStream(baudRate = 115200, onLineReceived) {
+  const [devices, setDevices] = useState([])
+  const nextId = useRef(1)
 
   async function connect() {
     try {
       const port = await requestSerialPort(baudRate)
-      portRef.current = port
-      abortRef.current = new AbortController()
-      setConnected(true)
-      await readSerialLines(
+      
+      // Hardware Reset for ESP32 (Pulse EN pin via DTR/RTS)
+      try {
+        await port.setSignals({ dataTerminalReady: false, requestToSend: true })
+        await new Promise(r => setTimeout(r, 100))
+        await port.setSignals({ dataTerminalReady: false, requestToSend: false })
+        await new Promise(r => setTimeout(r, 1000)) // Wait for bootloader to finish
+      } catch (err) {
+        console.warn('Could not reset ESP32 (DTR/RTS not supported by adapter?)', err)
+      }
+
+      const id = `dev_${nextId.current++}`
+      
+      const abortController = new AbortController()
+      
+      const encoder = new TextEncoderStream()
+      const writer = encoder.writable.getWriter()
+      encoder.readable.pipeTo(port.writable).catch(() => {})
+
+      setDevices(prev => [...prev, {
+        id,
         port,
-        (line) => setLines((prev) => [...prev.slice(-199), line]),
-        abortRef.current.signal
-      )
+        writer,
+        abortController,
+        name: `ESP32 Node ${id.split('_')[1]}`,
+        status: 'CONNECTED',
+        role: 'unassigned' // Will be set by UI
+      }])
+
+      // Start reading asynchronously
+      readSerialLines(
+        port,
+        (line) => {
+          if (onLineReceived) onLineReceived(id, line)
+        },
+        abortController.signal
+      ).catch(e => {
+        console.warn(`Device ${id} disconnected`, e)
+        disconnect(id)
+      })
+
+      return id
     } catch (e) {
-      setConnected(false)
+      console.error('Serial connection failed:', e)
+      return null
     }
   }
 
-  function disconnect() {
-    abortRef.current?.abort()
-    portRef.current?.close()
-    setConnected(false)
+  function disconnect(id) {
+    setDevices(prev => {
+      const dev = prev.find(d => d.id === id)
+      if (dev) {
+        dev.abortController?.abort()
+        dev.writer?.releaseLock()
+        dev.port?.close().catch(() => {})
+      }
+      return prev.filter(d => d.id !== id)
+    })
   }
 
-  return { lines, connect, disconnect, connected }
+  async function sendCommand(id, command) {
+    setDevices(prev => {
+      const dev = prev.find(d => d.id === id)
+      if (dev && dev.writer) {
+        dev.writer.write(command + '\n').catch(e => console.error(e))
+      }
+      return prev
+    })
+  }
+
+  function updateDeviceRole(id, role) {
+    setDevices(prev => prev.map(d => d.id === id ? { ...d, role } : d))
+  }
+
+  return { devices, connect, disconnect, sendCommand, updateDeviceRole }
 }
