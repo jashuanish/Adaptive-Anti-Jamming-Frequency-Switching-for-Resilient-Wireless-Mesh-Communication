@@ -253,12 +253,6 @@ void setup()
 
   // ── Pick the role ──
   printBanner();
-  // Flush any lingering serial data to prevent immediate/duplicate triggers
-  while (Serial.available()) {
-    Serial.read();
-  }
-  delay(10); // Short delay to let buffer clear
-
   while (myRole == ROLE_NONE)
   {
     if (Serial.available())

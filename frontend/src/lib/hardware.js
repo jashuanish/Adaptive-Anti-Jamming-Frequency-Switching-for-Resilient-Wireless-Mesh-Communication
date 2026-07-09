@@ -98,6 +98,11 @@ export function useHardwareSocket(event, serverUrl = '/') {
 export function useMultiSerialStream(baudRate = 115200, onLineReceived) {
   const [devices, setDevices] = useState([])
   const nextId = useRef(1)
+  const devicesRef = useRef(devices)
+  
+  useEffect(() => {
+    devicesRef.current = devices
+  }, [devices])
 
   async function connect() {
     try {
@@ -163,13 +168,10 @@ export function useMultiSerialStream(baudRate = 115200, onLineReceived) {
   }
 
   async function sendCommand(id, command) {
-    setDevices(prev => {
-      const dev = prev.find(d => d.id === id)
-      if (dev && dev.writer) {
-        dev.writer.write(command + '\n').catch(e => console.error(e))
-      }
-      return prev
-    })
+    const dev = devicesRef.current.find(d => d.id === id)
+    if (dev && dev.writer) {
+      dev.writer.write(command + '\n').catch(e => console.error(e))
+    }
   }
 
   function updateDeviceRole(id, role) {
